@@ -5,6 +5,7 @@ import (
 	"app/bm25"
 	"app/ext"
 	"app/getDoc"
+	"bufio"
 	"fmt"
 	"os"
 	"sort"
@@ -111,9 +112,10 @@ func retrieve(indexDir string) error {
 queryLoop:
 	for {
 		// input query
-		fmt.Print("query: ")
-		var query string
-		fmt.Scan(&query)
+		fmt.Print("\nquery: ")
+		inQuery := bufio.NewReader(os.Stdin)
+		query, err := inQuery.ReadString('\n')
+		ext.Check(err)
 		start := time.Now()
 
 		// BM25 retrieval
@@ -162,6 +164,7 @@ queryLoop:
 		for {
 			fmt.Print("make a selection: ")
 			fmt.Scan(&action)
+			ext.Check(err)
 			switch action {
 			case "Q", "q":
 				fmt.Println("quit")
