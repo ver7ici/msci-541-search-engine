@@ -1,4 +1,4 @@
-// Retrieve.exe path/to/index
+// ./retrieve.exe path/to/index
 package main
 
 import (
@@ -11,18 +11,17 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 func SplitSents(text *string) []string {
-	// fmt.Println("\u002E")
-	// fmt.Println("\u003F")
-	// fmt.Println("\u0021")
-	// runes := []rune(*text)
+	// split text into sentences
 	var sents []string
 	start := 0
 	for i := 0; i < len(*text); i++ {
-		if strings.ContainsRune(string((*text)[i]), 46) {
-			// fmt.Print((*text)[i])
+		if strings.ContainsRune(string((*text)[i]), 46) ||
+			strings.ContainsRune(string((*text)[i]), 63) ||
+			strings.ContainsRune(string((*text)[i]), 33) {
 			if start < i {
 				sents = append(sents, strings.TrimSpace((*text)[start:i+1]))
 			}
@@ -34,10 +33,10 @@ func SplitSents(text *string) []string {
 	return sents
 }
 
-func QBSummary(query *[]string, text *string) []string {
-	// returns up to nMax most relevant sentences in doc
+func QBSummary(query *[]string, text *string) []ext.ScoreItem {
+	// ranks sentences by relevance to query
 	sents := SplitSents(text)
-	scores := make([]int, len(sents))
+	scores := make([]ext.ScoreItem, len(sents))
 	for i, sent := range sents {
 		// 1st: l = 2, 2nd: l = 1, else: l = 0
 		l := 0
@@ -53,7 +52,7 @@ func QBSummary(query *[]string, text *string) []string {
 		words := ext.Tokenize(strings.ToLower(sent))
 		for t, token := range *query {
 			found := false
-			kTmp := 1
+			kTmp := 0
 			for w, word := range words {
 				if word == token {
 					// count matches
@@ -62,6 +61,9 @@ func QBSummary(query *[]string, text *string) []string {
 						// count unique matches
 						found = true
 						d += 1
+						if kTmp == 0 {
+							kTmp += 1
+						}
 					}
 					if t > 0 && w > 0 && words[w-1] == (*query)[t-1] {
 						// count contiguous matches
@@ -74,33 +76,33 @@ func QBSummary(query *[]string, text *string) []string {
 			}
 		}
 		// no weighting
-		scores[i] = l + c + d + k
+		scores[i].Name = sent
+		scores[i].Score = float64(l + c + d + k)
 	}
-	sort.Slice(sents, func(i, j int) bool {
-		return scores[i] > scores[j]
+	sort.Slice(scores, func(i, j int) bool {
+		return scores[i].Score > scores[j].Score
 	})
-	return sents
+	return scores
 }
 
-func retrieve() error {
+func retrieve(indexDir string) error {
 	// load data from index
-	os.Args[1] = strings.TrimSuffix(os.Args[1], "/")
 	fmt.Print("loading lexicon ... ")
 	var lex ext.Lexicon
 	lex.Word2ID = map[string]int{}
-	if err := ext.JSONLoad(os.Args[1]+"/lexicon.json", &lex); err != nil {
+	if err := ext.JSONLoad(indexDir+"/lexicon.json", &lex); err != nil {
 		return err
 	}
 	fmt.Println("done")
 	fmt.Print("loading inverted index ... ")
 	var postings ext.InvIndex
-	if err := ext.JSONLoad(os.Args[1]+"/postings.json", &postings); err != nil {
+	if err := ext.JSONLoad(indexDir+"/postings.json", &postings); err != nil {
 		return err
 	}
 	fmt.Println("done")
 	fmt.Print("loading metadata ... ")
 	var meta ext.Meta
-	if err := ext.JSONLoad(os.Args[1]+"/metadata.json", &meta); err != nil {
+	if err := ext.JSONLoad(indexDir+"/metadata.json", &meta); err != nil {
 		return err
 	}
 	fmt.Println("done")
@@ -112,49 +114,57 @@ queryLoop:
 		fmt.Print("query: ")
 		var query string
 		fmt.Scan(&query)
+		start := time.Now()
 
-		// BM25
+		// BM25 retrieval
 		tokens := ext.Tokenize(query)
 		results, err := bm25.BM25(&tokens, &lex, &postings, &meta)
 		ext.Check(err)
 
 		// display top 10
-		disp := ""
+		disp := "\n"
 		for i, result := range results {
 			wg.Add(1)
-
-			text, err := getDoc.GetBody(os.Args[1], "docno", result.DocNo, &meta)
+			text, err := getDoc.GetBody(indexDir, "docno", result.Name, &meta)
 			if err != nil {
 				return err
 			}
-			headline := meta.Main[result.DocNo].Headline
+			headline := meta.Main[result.Name].Headline
 			if headline == "" {
 				headline = text[:50] + "..."
 			}
 			sents := QBSummary(&tokens, &text)
-			disp += fmt.Sprintf("%2d.\t%v\n", i+1, headline)
+			disp += fmt.Sprintf(
+				"%2d. %v (%v/%v/%v)\n",
+				i+1,
+				headline,
+				meta.Main[result.Name].Date.Day,
+				meta.Main[result.Name].Date.Month,
+				meta.Main[result.Name].Date.Year,
+			)
 			for i, sent := range sents {
-				disp += sent + " [...] "
+				disp += sent.Name + " "
 				if i == 1 {
 					break
 				}
 			}
-			disp += "\n\n"
+			disp += fmt.Sprintf("(%v)\n\n", result.Name)
 			wg.Done()
 			if i >= 9 {
 				break
 			}
 		}
 		fmt.Print(disp)
-		// report time
+		fmt.Printf("Retrieval took %v\n\n", time.Since(start))
+
+		// prompt for rank, N, Q
 		var action string
 		for {
-			// prompt for rank, N, Q
 			fmt.Print("make a selection: ")
 			fmt.Scan(&action)
 			switch action {
 			case "Q", "q":
-				fmt.Println("quitting ...")
+				fmt.Println("quit")
 				break queryLoop
 			case "N", "n":
 				fmt.Println("new query ...")
@@ -164,9 +174,9 @@ queryLoop:
 			case "1", "2", "3", "4", "5", "6", "7", "8", "9", "10":
 				// show full doc
 				rank, _ := strconv.Atoi(action)
-				r, _ := getDoc.GetRaw(os.Args[1], "docno", results[rank+1].DocNo, &meta)
+				r, _ := getDoc.GetRaw(indexDir, "docno", results[rank-1].Name, &meta)
 				wg.Add(1)
-				fmt.Println(r)
+				fmt.Println("\n" + r)
 				wg.Done()
 			default:
 				fmt.Print("Q:\tquit\n" +
@@ -180,8 +190,14 @@ queryLoop:
 }
 
 func main() {
-	// input verification
-	err := retrieve()
+	if len(os.Args) != 2 {
+		msg := "invalid number of input arguments\n" +
+			"usage:\t./retrieve.exe indexDir\n" +
+			"\tindexDir:\tpath to index directory"
+		fmt.Println(msg)
+		return
+	}
+	err := retrieve(strings.TrimSuffix(os.Args[1], "/"))
 	if err != nil {
 		fmt.Printf("\n%v\n", err)
 	}

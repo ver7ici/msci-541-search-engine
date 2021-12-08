@@ -13,7 +13,6 @@ import (
 
 func GetPath(dir string, mode string, q string, meta *ext.Meta) (string, error) {
 	dir = strings.TrimSuffix(dir, "/")
-
 	docPath := fmt.Sprintf(
 		"%v/%v/%v/%v/%v.xml",
 		dir,

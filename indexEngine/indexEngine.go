@@ -1,4 +1,4 @@
-// ./IndexEngine.exe path/to/latimes.gz path/to/index
+// ./indexEngine.exe path/to/latimes.gz path/to/index
 package main
 
 import (
@@ -144,7 +144,7 @@ func main() {
 		rerun = true
 	} else if len(os.Args) != 3 {
 		msg := "invalid number of input arguments\n" +
-			"usage:\t./IndexEngine.exe sourceFile indexDir\n" +
+			"usage:\t./indexEngine.exe sourceFile indexDir\n" +
 			"\tsourceFile:\tgzip file containing documents\n" +
 			"\tindexDir:\tdirectory where documents and metadata will be stored"
 		fmt.Println(msg)

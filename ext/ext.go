@@ -47,6 +47,10 @@ type BM struct {
 	DocNo string
 	Score float64
 }
+type ScoreItem struct {
+	Name  string
+	Score float64
+}
 
 // #################################################
 // helper functions

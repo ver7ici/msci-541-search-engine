@@ -1,4 +1,3 @@
-// ./BM25.exe path/to/index path/to/queries.txt pthe/to/results.txt [-s]
 package bm25
 
 import (
@@ -8,6 +7,7 @@ import (
 )
 
 func UniqueInts(input []int) []int {
+	// return unique set of integers, maintains order
 	var u []int
 	m := map[int]bool{}
 	for _, val := range input {
@@ -19,14 +19,15 @@ func UniqueInts(input []int) []int {
 	return u
 }
 
-func BM25(tokenStr *[]string, lex *ext.Lexicon, postings *ext.InvIndex, meta *ext.Meta) ([]ext.BM, error) {
+func BM25(tokenStr *[]string, lex *ext.Lexicon, postings *ext.InvIndex, meta *ext.Meta) ([]ext.ScoreItem, error) {
+	// BM25 retrieval, no stemming
 	var tokens []int
 	for _, token := range *tokenStr {
 		if v, ok := (*lex).Word2ID[token]; ok {
 			tokens = append(tokens, v)
 		}
 	}
-
+	// paraters
 	k1 := 1.2
 	b := 0.75
 	k2 := 7.0
@@ -57,9 +58,9 @@ func BM25(tokenStr *[]string, lex *ext.Lexicon, postings *ext.InvIndex, meta *ex
 		}
 	}
 	// create result structure
-	var results []ext.BM
+	var results []ext.ScoreItem
 	for docID, score := range scores {
-		results = append(results, ext.BM{DocNo: (*meta).DocNos[docID], Score: score})
+		results = append(results, ext.ScoreItem{Name: (*meta).DocNos[docID], Score: score})
 	}
 	// sort results by score
 	sort.Slice(results, func(i, j int) bool {
