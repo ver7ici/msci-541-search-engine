@@ -8,9 +8,10 @@
     `./indexEngine/indexEngine.exe path/to/latimes.gz path/to/index`  
     from the root of the repository
 4. Start search engine: run  
-    `./retrieve/retrieve.exe path/to/index`
+    `./retrieve/retrieve.exe path/to/index`  
     from the root of the repository
-5. Enter a query
+5. Enter a query  
+    The top 10 retrieved results are displayed
 6. Enter one of the following options:  
     `Q:     exit the program`  
 	`N:     enter a new query`  
