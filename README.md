@@ -1,5 +1,5 @@
 # MSCI 541: Homework 5
-### by Chris McCarthy
+### by Chris Ouyang McCarthy
 
 ## Instructions
 1. Install [the Go programming language](https://golang.org/)
